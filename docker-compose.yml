@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  ozdilek_mssql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: mssql_prod
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=Ozdilek_Secure_2026!
+    ports:
+      - "1433:1433"
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+
+  ozdilek_metabase:
+    image: metabase/metabase:latest
+    container_name: metabase_prod
+    ports:
+      - "3000:3000"
+    environment:
+      - MB_DB_TYPE=h2
+    depends_on:
+      - ozdilek_mssql
+    deploy:
+      resources:
+        limits:
+          memory: 1G
