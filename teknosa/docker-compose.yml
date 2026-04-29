@@ -1,0 +1,109 @@
+
+
+version: '3.7'
+
+services:
+  es01:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.14
+    container_name: es01
+    environment:
+      - node.name=es01
+      - cluster.name=es-cluster
+      - discovery.seed_hosts=es02
+      - cluster.initial_master_nodes=es01,es02
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - xpack.security.enabled=false
+      - ELASTIC_PASSWORD=LE-]^sd<Jm2;{BS.
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - es01_data:/usr/share/elasticsearch/data
+    networks:
+      - elk_net
+    ports:
+      - "9200:9200"
+
+  es02:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.14
+    container_name: es02
+    environment:
+      - node.name=es02
+      - cluster.name=es-cluster
+      - discovery.seed_hosts=es01
+      - cluster.initial_master_nodes=es01,es02
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - xpack.security.enabled=false
+      - ELASTIC_PASSWORD=LE-]^sd<Jm2;{BS.
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - es02_data:/usr/share/elasticsearch/data
+    networks:
+      - elk_net
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:7.17.14
+    container_name: kibana
+    environment:
+      - ELASTICSEARCH_HOSTS=["http://es01:9200","http://es02:9200"]
+      - ELASTICSEARCH_USERNAME=elastic
+      - ELASTICSEARCH_PASSWORD=LE-]^sd<Jm2;{BS.
+    ports:
+      - "5601:5601"
+    networks:
+      - elk_net
+    depends_on:
+      - es01
+      - es02
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:7.17.14
+    container_name: logstash
+    volumes:
+      - ./logstash/logstash.conf:/usr/share/logstash/pipeline/logstash.conf
+    ports:
+      - "5044:5044"
+    environment:
+      LS_JAVA_OPTS: "-Xmx256m -Xms256m"
+
+    networks:
+      - elk_net
+    depends_on:
+      - es01
+      - es02
+
+  java-app:
+    build: ./java-app
+    container_name: java-app
+    volumes:
+      - app_logs:/logs
+    networks:
+      - elk_net
+
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:7.17.14
+    container_name: filebeat
+    user: root
+    volumes:
+      - ./filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml
+      - app_logs:/logs:rw
+    networks:
+      - elk_net
+    depends_on:
+      - logstash
+    command: >
+      sh -c "chmod go-w /usr/share/filebeat/filebeat.yml && filebeat -e"
+volumes:
+  es01_data:
+  es02_data:
+  app_logs:
+
+networks:
+  elk_net:
+    driver: bridge
